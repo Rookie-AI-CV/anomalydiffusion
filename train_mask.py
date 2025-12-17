@@ -176,6 +176,18 @@ def get_parser(**parser_kwargs):
         help="directory for logging dat shit",
     )
     parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=None,
+        help="Output directory for training checkpoints and logs. If not specified, will use logdir/mask-checkpoints/{sample_name}-{anomaly_name}",
+    )
+    parser.add_argument(
+        "--save_models_dir",
+        type=str,
+        default=None,
+        help="Directory to save model images during training. If not specified, will use save_models/{sub_dir}/{sample_name}/{anomaly_name}",
+    )
+    parser.add_argument(
         "--scale_lr",
         type=str2bool,
         nargs="?",
@@ -387,7 +399,7 @@ class SetupCallback(Callback):
 class ImageLogger(Callback):
     def __init__(self, batch_frequency, max_images, clamp=True, increase_log_steps=True,
                  rescale=True, disabled=False, log_on_batch_idx=False, log_first_step=False,
-                 log_images_kwargs=None,test_dataset=False,sample_name=None,anomaly_name=None,attention_mask=False):
+                 log_images_kwargs=None,test_dataset=False,sample_name=None,anomaly_name=None,attention_mask=False,save_models_dir=None):
         super().__init__()
         self.rescale = rescale
         self.batch_freq = batch_frequency
@@ -397,9 +409,10 @@ class ImageLogger(Callback):
         }
         self.save_dir=None
         self.test_dataset=test_dataset
-        if test_dataset:
-            sub_dir='attn-mask' if attention_mask else 'ori'
-            self.save_dir='save_models/%s/%s/%s'%(sub_dir,sample_name,anomaly_name)
+        self.save_models_dir=save_models_dir
+        self.sample_name=sample_name
+        self.anomaly_name=anomaly_name
+        self.attention_mask=attention_mask
         self.log_steps = [2 ** n for n in range(int(np.log2(self.batch_freq)) + 1)]
         if not increase_log_steps:
             self.log_steps = [self.batch_freq]
@@ -425,8 +438,13 @@ class ImageLogger(Callback):
     def log_local(self, save_dir, split, images,
                   global_step, current_epoch, batch_idx):
         root = os.path.join(save_dir, "images", split)
-        if self.save_dir is not None:
-            root= self.save_dir
+        if self.test_dataset:
+            if self.save_models_dir:
+                sub_dir = 'attn-mask' if self.attention_mask else 'ori'
+                root = os.path.join(self.save_models_dir, sub_dir, self.sample_name, self.anomaly_name)
+            else:
+                sub_dir = 'attn-mask' if self.attention_mask else 'ori'
+                root = 'save_models/%s/%s/%s' % (sub_dir, self.sample_name, self.anomaly_name)
         for k in images:
             grid = torchvision.utils.make_grid(images[k], nrow=4)
             if self.rescale:
@@ -635,9 +653,13 @@ if __name__ == "__main__":
         # print(now,name,opt.postfix)
         nowname = now + name + opt.postfix
         # logdir = os.path.join(opt.logdir, nowname)
-        logdir=os.path.join(opt.logdir,'mask-checkpoints/%s-%s'%(opt.sample_name,opt.anomaly_name))
-        if os.path.exists(logdir):
-            print('dir_exists!')
+        if opt.output_dir:
+            logdir = opt.output_dir
+        else:
+            logdir=os.path.join(opt.logdir,'mask-checkpoints/%s-%s'%(opt.sample_name,opt.anomaly_name))
+        if os.path.exists(logdir) and not opt.resume:
+            print(f'Warning: Output directory exists: {logdir}')
+            print('If you want to resume training, use --resume option')
             exit()
 
     ckptdir = os.path.join(logdir, "checkpoints")
@@ -769,7 +791,8 @@ if __name__ == "__main__":
                     "test_dataset":opt.test_dataset,
                     "sample_name": opt.sample_name,
                     "anomaly_name":opt.anomaly_name,
-                    "attention_mask":opt.attention_mask
+                    "attention_mask":opt.attention_mask,
+                    "save_models_dir": opt.save_models_dir
                 }
             },
             "learning_rate_logger": {

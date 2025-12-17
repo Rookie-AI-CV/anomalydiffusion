@@ -127,6 +127,12 @@ if __name__ == "__main__":
         default="logs/anomaly-checkpoints/checkpoints/embeddings.pt",
         help="Path to embeddings checkpoint",
     )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=None,
+        help="Output directory for generated anomaly images. If not specified, will use generated_dataset/{sample_name}/{anomaly_name}",
+    )
 
     # setup_seed(42)
     opt = parser.parse_args()
@@ -152,13 +158,20 @@ if __name__ == "__main__":
     dataset = Positive_sample_with_generated_mask(opt.data_root,sample_name, anomaly_name, repeats=1, size=256, set='train',
                                                       per_image_tokens=False)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=False, drop_last=True)
-    save_dir = 'generated_dataset/%s/%s' % (sample_name, anomaly_name)
-    os.makedirs(save_dir,exist_ok=True)
+    
+    # 确定保存目录
+    if opt.output_dir:
+        save_dir = opt.output_dir
+    else:
+        save_dir = 'generated_dataset/%s/%s' % (sample_name, anomaly_name)
+    
+    os.makedirs(save_dir, exist_ok=True)
     os.makedirs(os.path.join(save_dir,'image'), exist_ok=True)
     os.makedirs(os.path.join(save_dir, 'mask'), exist_ok=True)
     os.makedirs(os.path.join(save_dir, 'image-mask'), exist_ok=True)
     os.makedirs(os.path.join(save_dir, 'ori'), exist_ok=True)
     os.makedirs(os.path.join(save_dir, 'recon'), exist_ok=True)
+    print(f"Generated anomaly images will be saved to: {save_dir}")
     cnt=0
     with torch.no_grad():
         for epoch in range(1000):

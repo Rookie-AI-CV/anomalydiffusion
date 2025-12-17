@@ -1,4 +1,6 @@
 #!/bin/bash
+# 训练异常生成模型
+
 gpu_id=0
 path_to_mvtec_dataset="/root/autodl-tmp/gear-MVTec"
 output_dir="/root/autodl-tmp/anomaly-generation-logs" 

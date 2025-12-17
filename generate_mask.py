@@ -128,7 +128,13 @@ if __name__ == "__main__":
         "--generated_mask_dir",
         type=str,
         default="./generated_mask",
-        help="Directory to save generated masks",
+        help="Directory to save generated masks. Will create subdirectories {sample_name}/{anomaly_name}",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=None,
+        help="Output directory for generated masks. If specified, will override generated_mask_dir and save directly to this path",
     )
 
     opt = parser.parse_args()
@@ -154,8 +160,14 @@ if __name__ == "__main__":
     cnt=0
     dataset = Personalized_mvtec_mask(opt.data_root, sample_name, anomaly_name,repeats=10000)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=False, drop_last=True)
-    save_dir=os.path.join(opt.generated_mask_dir, sample_name, anomaly_name)
-    os.makedirs(save_dir,exist_ok=True)
+    
+    # 确定保存目录
+    if opt.output_dir:
+        save_dir = opt.output_dir
+    else:
+        save_dir = os.path.join(opt.generated_mask_dir, sample_name, anomaly_name)
+    os.makedirs(save_dir, exist_ok=True)
+    print(f"Generated masks will be saved to: {save_dir}")
     with torch.no_grad():
         for i in range(1000):
             for idx, batch in enumerate(dataloader):
