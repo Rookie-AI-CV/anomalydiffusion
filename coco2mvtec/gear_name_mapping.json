@@ -1,0 +1,16 @@
+{
+  "划痕": "scratch",
+  "压伤": "pressure_damage",
+  "崩损": "chipping",
+  "嵌件歪斜": "insert_misalignment",
+  "异物": "foreign_object",
+  "断齿": "broken_tooth",
+  "无嵌件": "missing_insert",
+  "有螺纹": "with_thread",
+  "焦化": "burning",
+  "碰伤": "impact_damage",
+  "螺纹缺失": "missing_thread",
+  "裂纹": "crack",
+  "其他": "other"
+}
+
