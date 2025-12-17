@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>异常生成工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .section-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .upload-area {
+            border: 2px dashed #6c757d;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #e0e8ff;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .image-container {
+            position: relative;
+            display: inline-block;
+            margin: 20px 0;
+            border: 3px solid #dee2e6;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+        
+        #imageCanvas {
+            display: block;
+            max-width: 100%;
+            cursor: crosshair;
+        }
+        
+        .selection-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #e7f3ff;
+            border-radius: 5px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .form-group {
+            margin: 15px 0;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        select, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        
+        select:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .result-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .result-image {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin: 10px 0;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        input[type="radio"] {
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        
+        label[for*="modelLoadMode"] {
+            cursor: pointer;
+            font-weight: normal;
+        }
+        
+        #pathMode input[type="text"] {
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 异常生成工具</h1>
+        
+        <!-- 模型上传区域 -->
+        <div class="section">
+            <div class="section-title">1. 加载模型文件</div>
+            
+            <!-- 切换选项 -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: inline-block; margin-right: 20px;">
+                    <input type="radio" name="modelLoadMode" value="upload" checked onchange="toggleModelLoadMode()">
+                    上传文件
+                </label>
+                <label style="display: inline-block;">
+                    <input type="radio" name="modelLoadMode" value="path" onchange="toggleModelLoadMode()">
+                    使用服务器路径
+                </label>
+            </div>
+            
+            <!-- 上传模式 -->
+            <div id="uploadMode">
+                <div class="upload-area" id="modelUploadArea">
+                    <p>点击或拖拽模型文件到这里</p>
+                    <input type="file" id="modelFile" accept=".ckpt,.pt,.pth">
+                    <p style="margin-top: 10px; color: #6c757d; font-size: 0.9em;">支持 .ckpt, .pt, .pth 格式</p>
+                </div>
+            </div>
+            
+            <!-- 路径模式 -->
+            <div id="pathMode" style="display: none;">
+                <div class="form-group">
+                    <label>模型文件路径:</label>
+                    <input type="text" id="modelPath" placeholder="/path/to/model.ckpt" style="font-family: monospace;">
+                    <p style="margin-top: 5px; color: #6c757d; font-size: 0.9em;">输入服务器上的模型文件绝对路径</p>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>配置文件路径:</label>
+                <input type="text" id="configPath" value="configs/latent-diffusion/txt2img-1p4B-finetune-encoder+embedding.yaml" placeholder="配置文件路径">
+            </div>
+            <div class="form-group">
+                <label>Spatial Encoder路径 (可选):</label>
+                <input type="text" id="spatialEncoderPath" placeholder="spatial_encoder.pt 路径">
+            </div>
+            <div class="form-group">
+                <label>Embeddings路径 (可选):</label>
+                <input type="text" id="embeddingsPath" placeholder="embeddings.pt 路径">
+            </div>
+            <button class="btn" id="uploadModelBtn">加载模型</button>
+            <div id="modelStatus"></div>
+        </div>
+        
+        <!-- 缺陷类型文件上传 -->
+        <div class="section">
+            <div class="section-title">2. 上传缺陷类型文件 (name-anomaly.txt)</div>
+            <div class="upload-area" id="anomalyFileUploadArea">
+                <p>点击或拖拽 name-anomaly.txt 文件到这里</p>
+                <input type="file" id="anomalyFile" accept=".txt">
+            </div>
+            <button class="btn" id="parseAnomalyBtn">解析缺陷类型</button>
+            <div id="anomalyStatus"></div>
+        </div>
+        
+        <!-- 图片上传和选择区域 -->
+        <div class="section">
+            <div class="section-title">3. 上传正常图片并框选区域</div>
+            <div class="upload-area" id="imageUploadArea">
+                <p>点击或拖拽正常图片到这里</p>
+                <input type="file" id="imageFile" accept="image/*">
+            </div>
+            <div id="imageContainer" style="display: none;">
+                <div class="image-container">
+                    <canvas id="imageCanvas"></canvas>
+                </div>
+                <div class="selection-info" id="selectionInfo" style="display: none;">
+                    <strong>已选择区域:</strong> <span id="selectionCoords"></span>
+                </div>
+                <button class="btn" id="clearSelectionBtn">清除选择</button>
+            </div>
+        </div>
+        
+        <!-- 缺陷类型选择和生成 -->
+        <div class="section">
+            <div class="section-title">4. 选择缺陷类型并生成</div>
+            <div class="form-group">
+                <label>选择缺陷类型:</label>
+                <select id="anomalySelect">
+                    <option value="">请先解析缺陷类型文件</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="adaptiveMask"> 使用自适应掩码
+                </label>
+            </div>
+            <button class="btn" id="generateBtn" disabled>生成异常图片</button>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px;">正在生成中，请稍候...</p>
+            </div>
+        </div>
+        
+        <!-- 结果显示 -->
+        <div class="section result-container" id="resultContainer" style="display: none;">
+            <div class="section-title">生成结果</div>
+            <div class="grid">
+                <div>
+                    <h3>原始图片</h3>
+                    <img id="originalImage" class="result-image" alt="原始图片">
+                </div>
+                <div>
+                    <h3>生成的异常图片</h3>
+                    <img id="resultImage" class="result-image" alt="生成的异常图片">
+                </div>
+            </div>
+            <div style="margin-top: 20px;">
+                <h3>掩码图</h3>
+                <img id="maskImage" class="result-image" alt="掩码图">
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentModelId = null;
+        let currentImage = null;
+        let selectionCoords = null;
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+        let canvas, ctx, image;
+        
+        // 文件上传区域事件
+        document.getElementById('modelUploadArea').addEventListener('click', () => {
+            document.getElementById('modelFile').click();
+        });
+        
+        document.getElementById('anomalyFileUploadArea').addEventListener('click', () => {
+            document.getElementById('anomalyFile').click();
+        });
+        
+        document.getElementById('imageUploadArea').addEventListener('click', () => {
+            document.getElementById('imageFile').click();
+        });
+        
+        // 拖拽上传
+        ['modelUploadArea', 'anomalyFileUploadArea', 'imageUploadArea'].forEach(id => {
+            const area = document.getElementById(id);
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                area.classList.add('dragover');
+            });
+            area.addEventListener('dragleave', () => {
+                area.classList.remove('dragover');
+            });
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                area.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    if (id === 'modelUploadArea') {
+                        document.getElementById('modelFile').files = files;
+                    } else if (id === 'anomalyFileUploadArea') {
+                        document.getElementById('anomalyFile').files = files;
+                    } else if (id === 'imageUploadArea') {
+                        document.getElementById('imageFile').files = files;
+                        handleImageUpload(files[0]);
+                    }
+                }
+            });
+        });
+        
+        // 切换模型加载模式
+        function toggleModelLoadMode() {
+            const mode = document.querySelector('input[name="modelLoadMode"]:checked').value;
+            const uploadMode = document.getElementById('uploadMode');
+            const pathMode = document.getElementById('pathMode');
+            
+            if (mode === 'upload') {
+                uploadMode.style.display = 'block';
+                pathMode.style.display = 'none';
+            } else {
+                uploadMode.style.display = 'none';
+                pathMode.style.display = 'block';
+            }
+        }
+        
+        // 加载模型（支持上传和路径两种模式）
+        document.getElementById('uploadModelBtn').addEventListener('click', async () => {
+            const mode = document.querySelector('input[name="modelLoadMode"]:checked').value;
+            
+            try {
+                if (mode === 'upload') {
+                    // 上传模式
+                    const fileInput = document.getElementById('modelFile');
+                    if (!fileInput.files[0]) {
+                        showStatus('modelStatus', '请选择模型文件', 'error');
+                        return;
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('model_file', fileInput.files[0]);
+                    formData.append('config_path', document.getElementById('configPath').value);
+                    formData.append('spatial_encoder_path', document.getElementById('spatialEncoderPath').value);
+                    formData.append('embeddings_path', document.getElementById('embeddingsPath').value);
+                    
+                    showStatus('modelStatus', '正在上传并加载模型...', 'info');
+                    const response = await fetch('/api/upload_model', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        currentModelId = data.model_id;
+                        showStatus('modelStatus', '模型加载成功！', 'success');
+                        updateGenerateButton();
+                    } else {
+                        showStatus('modelStatus', '错误: ' + data.error, 'error');
+                    }
+                } else {
+                    // 路径模式
+                    const modelPath = document.getElementById('modelPath').value.trim();
+                    if (!modelPath) {
+                        showStatus('modelStatus', '请输入模型文件路径', 'error');
+                        return;
+                    }
+                    
+                    const requestData = {
+                        model_path: modelPath,
+                        config_path: document.getElementById('configPath').value,
+                        spatial_encoder_path: document.getElementById('spatialEncoderPath').value,
+                        embeddings_path: document.getElementById('embeddingsPath').value
+                    };
+                    
+                    showStatus('modelStatus', '正在从服务器路径加载模型...', 'info');
+                    const response = await fetch('/api/load_model_from_path', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        currentModelId = data.model_id;
+                        showStatus('modelStatus', data.message, 'success');
+                        updateGenerateButton();
+                    } else {
+                        showStatus('modelStatus', '错误: ' + data.error, 'error');
+                    }
+                }
+            } catch (error) {
+                showStatus('modelStatus', '加载失败: ' + error.message, 'error');
+            }
+        });
+        
+        // 解析缺陷类型文件
+        document.getElementById('parseAnomalyBtn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('anomalyFile');
+            if (!fileInput.files[0]) {
+                showStatus('anomalyStatus', '请选择文件', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('anomaly_file', fileInput.files[0]);
+            
+            try {
+                showStatus('anomalyStatus', '正在解析...', 'info');
+                const response = await fetch('/api/parse_anomaly_file', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    const select = document.getElementById('anomalySelect');
+                    select.innerHTML = '<option value="">请选择缺陷类型</option>';
+                    data.anomalies.forEach(anomaly => {
+                        const option = document.createElement('option');
+                        option.value = anomaly.anomaly_name;
+                        option.textContent = anomaly.display;
+                        option.dataset.sampleName = anomaly.sample_name;
+                        select.appendChild(option);
+                    });
+                    showStatus('anomalyStatus', `成功解析 ${data.anomalies.length} 个缺陷类型`, 'success');
+                    updateGenerateButton();
+                } else {
+                    showStatus('anomalyStatus', '错误: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('anomalyStatus', '解析失败: ' + error.message, 'error');
+            }
+        });
+        
+        // 处理图片上传
+        document.getElementById('imageFile').addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                handleImageUpload(e.target.files[0]);
+            }
+        });
+        
+        function handleImageUpload(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImage = new Image();
+                currentImage.onload = () => {
+                    setupCanvas();
+                };
+                currentImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function setupCanvas() {
+            canvas = document.getElementById('imageCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // 设置canvas大小
+            const maxWidth = 800;
+            const maxHeight = 600;
+            let width = currentImage.width;
+            let height = currentImage.height;
+            
+            if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+            }
+            if (height > maxHeight) {
+                width = (width * maxHeight) / height;
+                height = maxHeight;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(currentImage, 0, 0, width, height);
+            
+            document.getElementById('imageContainer').style.display = 'block';
+            selectionCoords = null;
+            document.getElementById('selectionInfo').style.display = 'none';
+        }
+        
+        // 画布选择事件
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+            
+            // 重绘画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+            
+            // 绘制选择框
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+            
+            // 绘制半透明填充
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+            ctx.fillRect(startX, startY, currentX - startX, currentY - startY);
+        });
+        
+        canvas.addEventListener('mouseup', (e) => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            const rect = canvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+            
+            // 计算选择区域（相对于原始图片）
+            const scaleX = currentImage.width / canvas.width;
+            const scaleY = currentImage.height / canvas.height;
+            
+            selectionCoords = [
+                Math.min(startX, endX) * scaleX,
+                Math.min(startY, endY) * scaleY,
+                Math.max(startX, endX) * scaleX,
+                Math.max(startY, endY) * scaleY
+            ];
+            
+            document.getElementById('selectionCoords').textContent = 
+                `(${Math.round(selectionCoords[0])}, ${Math.round(selectionCoords[1])}) - (${Math.round(selectionCoords[2])}, ${Math.round(selectionCoords[3])})`;
+            document.getElementById('selectionInfo').style.display = 'block';
+            updateGenerateButton();
+        });
+        
+        // 清除选择
+        document.getElementById('clearSelectionBtn').addEventListener('click', () => {
+            selectionCoords = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+            document.getElementById('selectionInfo').style.display = 'none';
+            updateGenerateButton();
+        });
+        
+        // 生成异常图片
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            if (!currentModelId) {
+                alert('请先上传并加载模型');
+                return;
+            }
+            
+            if (!currentImage) {
+                alert('请先上传图片');
+                return;
+            }
+            
+            if (!selectionCoords) {
+                alert('请先在图片上框选区域');
+                return;
+            }
+            
+            const anomalyName = document.getElementById('anomalySelect').value;
+            if (!anomalyName) {
+                alert('请选择缺陷类型');
+                return;
+            }
+            
+            const adaptiveMask = document.getElementById('adaptiveMask').checked;
+            
+            // 显示加载动画
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('generateBtn').disabled = true;
+            
+            try {
+                const requestData = {
+                    model_id: currentModelId,
+                    image: currentImage.src,
+                    selection_coords: selectionCoords,
+                    anomaly_name: anomalyName,
+                    adaptive_mask: adaptiveMask
+                };
+                
+                const response = await fetch('/api/generate_anomaly', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 显示结果
+                    document.getElementById('originalImage').src = currentImage.src;
+                    document.getElementById('resultImage').src = data.result_image;
+                    if (data.mask_path) {
+                        document.getElementById('maskImage').src = data.mask_path;
+                    }
+                    document.getElementById('resultContainer').style.display = 'block';
+                } else {
+                    alert('生成失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('生成失败: ' + error.message);
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+                document.getElementById('generateBtn').disabled = false;
+            }
+        });
+        
+        function updateGenerateButton() {
+            const btn = document.getElementById('generateBtn');
+            const canGenerate = currentModelId && currentImage && selectionCoords && 
+                              document.getElementById('anomalySelect').value;
+            btn.disabled = !canGenerate;
+        }
+        
+        document.getElementById('anomalySelect').addEventListener('change', updateGenerateButton);
+        
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+    </script>
+</body>
+</html>
+

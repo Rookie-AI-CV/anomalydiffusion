@@ -81,6 +81,7 @@ class EmbeddingManager(nn.Module):
         name_anomaly_file = 'name-anomaly.txt'
         with open(name_anomaly_file,'r') as f:
             sample_anomaly_pairs=f.read().split('\n')
+        sample_anomaly_pairs = [name.strip() for name in sample_anomaly_pairs if name.strip()]
         for name in sample_anomaly_pairs:
             for idx, placeholder_string in enumerate(placeholder_strings):
 

@@ -100,21 +100,61 @@ if __name__ == "__main__":
         required=True,
         help="whether use ht encoder",
     )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="configs/latent-diffusion/txt2img-1p4B-finetune.yaml",
+        help="Path to config file",
+    )
+    parser.add_argument(
+        "--actual_resume",
+        type=str,
+        default="./models/ldm/text2img-large/model.ckpt",
+        help="Path to base model checkpoint",
+    )
+    parser.add_argument(
+        "--mask_embeddings_ckpt",
+        type=str,
+        default=None,
+        help="Path to trained mask embeddings checkpoint. If not provided, will use logs/mask-checkpoints/{sample_name}-{anomaly_name}/checkpoints/embeddings.pt",
+    )
+    parser.add_argument(
+        "--mask_logdir",
+        type=str,
+        default="logs",
+        help="Directory where mask checkpoints are saved",
+    )
+    parser.add_argument(
+        "--generated_mask_dir",
+        type=str,
+        default="./generated_mask",
+        help="Directory to save generated masks",
+    )
 
     opt = parser.parse_args()
-    config = OmegaConf.load("configs/latent-diffusion/txt2img-1p4B-finetune.yaml")
-    actual_resume = './models/ldm/text2img-large/model.ckpt'
-    model = load_model_from_config(config, actual_resume)
+    config = OmegaConf.load(opt.config)
+    model = load_model_from_config(config, opt.actual_resume)
     sample_name=opt.sample_name
     anomaly_name=opt.anomaly_name
-    model.embedding_manager.load('logs/mask-checkpoints/%s-%s/checkpoints/embeddings.pt'%(sample_name,anomaly_name))
+    
+    # 确定 embeddings 路径
+    if opt.mask_embeddings_ckpt:
+        embeddings_path = opt.mask_embeddings_ckpt
+    else:
+        embeddings_path = os.path.join(opt.mask_logdir, 'mask-checkpoints', '%s-%s'%(sample_name,anomaly_name), 'checkpoints', 'embeddings.pt')
+    
+    if not os.path.exists(embeddings_path):
+        raise FileNotFoundError(f"Mask embeddings checkpoint not found: {embeddings_path}\nPlease train the mask model first or specify --mask_embeddings_ckpt")
+    
+    print(f"Loading mask embeddings from: {embeddings_path}")
+    model.embedding_manager.load(embeddings_path)
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)
     sampler = DDIMSampler(model)
     cnt=0
     dataset = Personalized_mvtec_mask(opt.data_root, sample_name, anomaly_name,repeats=10000)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=False, drop_last=True)
-    save_dir='generated_mask/%s/%s'%(sample_name,anomaly_name)
+    save_dir=os.path.join(opt.generated_mask_dir, sample_name, anomaly_name)
     os.makedirs(save_dir,exist_ok=True)
     with torch.no_grad():
         for i in range(1000):

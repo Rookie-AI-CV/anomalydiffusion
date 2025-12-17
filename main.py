@@ -73,6 +73,16 @@ def get_parser(**parser_kwargs):
         help="whether use ht encoder",
     )
     parser.add_argument(
+        "--size",
+        type=int, default=None,
+        help="image size for training (will override config and data_enhance)",
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int, default=None,
+        help="batch size for training (will override config)",
+    )
+    parser.add_argument(
         "--attention_mask",
         action="store_true", default=False,
         help="whether use ht encoder",
@@ -294,6 +304,7 @@ class DataModuleFromConfig(pl.LightningDataModule):
 
     def prepare_data(self):
         for data_cfg in self.dataset_configs.values():
+            print(f"[DEBUG prepare_data] 准备实例化数据集，size参数: {data_cfg.get('params', {}).get('size', 'NOT SET')}")
             instantiate_from_config(data_cfg)
 
     def setup(self, stage=None):
@@ -645,7 +656,9 @@ if __name__ == "__main__":
         else:
             model = instantiate_from_config(config.model)
         if opt.spatial_encoder_embedding:
-            model.prepare_spatial_encoder(optimze_together=True,data_enhance=opt.data_enhance)
+            # 获取输入图像尺寸（从配置中）
+            input_image_size = config.data.params.train.params.get('size', 256)
+            model.prepare_spatial_encoder(optimze_together=True,data_enhance=opt.data_enhance, input_image_size=input_image_size)
         elif opt.spatial_encoder:
             model.prepare_spatial_encoder()
         if opt.test_dataset:
@@ -783,12 +796,33 @@ if __name__ == "__main__":
         trainer_kwargs["max_steps"] = trainer_opt.max_steps
         trainer = Trainer.from_argparse_args(trainer_opt, **trainer_kwargs)
         trainer.logdir = logdir  ###
+        print(f"[DEBUG] 在设置配置前: opt.size = {opt.size}, opt.spatial_encoder_embedding = {opt.spatial_encoder_embedding}")
         if opt.spatial_encoder_embedding:
             config.data.params.train.params.mvtec_path = opt.mvtec_path
             config.data.params.train.target = 'ldm.data.personalized.Personalized_mvtec_encoder'
             config.data.params.train.params.data_enhance=True
             if opt.random_mask:
                 config.data.params.train.params.random_mask = True
+            # 优先使用命令行参数，否则使用配置文件中的值
+            if opt.size is not None:
+                config.data.params.train.params.size = opt.size
+                config.data.params.validation.params.size = opt.size
+                print(f"[配置] 设置图像尺寸为: {opt.size} (使用命令行参数)")
+            elif 'size' not in config.data.params.train.params:
+                # 如果配置文件中没有size，且data_enhance=True，则使用512
+                if opt.data_enhance:
+                    config.data.params.train.params.size = 512
+                    config.data.params.validation.params.size = 512
+                    print(f"[配置] 设置图像尺寸为: 512 (data_enhance=True且未指定size)")
+                else:
+                    config.data.params.train.params.size = 256
+                    config.data.params.validation.params.size = 256
+                    print(f"[配置] 设置图像尺寸为: 256 (默认值)")
+            else:
+                print(f"[配置] 使用配置文件中的图像尺寸: {config.data.params.train.params.get('size', 'NOT SET')}")
+            print(f"[DEBUG] 最终设置的size = {config.data.params.train.params.get('size', 'NOT SET')}")
+            if opt.batch_size is not None:
+                config.data.params.batch_size = opt.batch_size
             config.data.params.validation.params.mvtec_path = opt.mvtec_path
             config.data.params.validation.target = 'ldm.data.personalized.Personalized_mvtec_encoder'
             config.data.params.validation.params.set = 'validate'

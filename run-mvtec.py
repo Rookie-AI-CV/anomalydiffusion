@@ -22,6 +22,7 @@ root_dir=opt.data_path
 cnt=0
 flag=False
 # dirs1= ['bottle','cable','capsule','carpet','grid','hazelnut','leather','metal_nut','pill','screw','tile','transistor','toothbrush','wood','zipper']
+
 dirs1=os.listdir(root_dir)
 for dir1 in dirs1:
     if os.path.isdir(os.path.join(root_dir,dir1)):

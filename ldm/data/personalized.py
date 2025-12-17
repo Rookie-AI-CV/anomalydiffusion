@@ -158,12 +158,16 @@ class Personalized_mvtec_encoder(Dataset):
         with open(os.path.join('name-anomaly.txt'),'r') as f:
             data=f.read().split('\n')
             for i in data:
+                i = i.strip() 
+                if not i or '+' not in i:
+                    continue
                 sample_name,anomaly_name=i.split('+')
                 sample_anomaly_pairs.append((sample_name,anomaly_name))
         self.data=[]
-        if data_enhance:
+        if data_enhance and size is None:
             size=512
         self.size = size
+        print(f"[数据初始化] 设置的图像尺寸参数: {self.size}")
         self.interpolation = {"linear": PIL.Image.LINEAR,
                               "bilinear": PIL.Image.BILINEAR,
                               "bicubic": PIL.Image.BICUBIC,
@@ -177,10 +181,21 @@ class Personalized_mvtec_encoder(Dataset):
             mask_path=os.path.join(self.data_root,sample_name,'ground_truth',anomaly_name)
             img_files=os.listdir(img_path)
             mask_files=os.listdir(mask_path)
-            img_files.sort(key=lambda x:int(x[:3]))
-            mask_files.sort(key=lambda x: int(x[:3]))
+            # 尝试提取数字，如果失败则按文件名自然排序
+            import re
+            def sort_key(filename):
+                match = re.search(r'^(\d+)', filename)
+                if match:
+                    return (0, int(match.group(1)))
+                return (1, filename)
+            img_files.sort(key=sort_key)
+            mask_files.sort(key=sort_key)
+            mask_dict = {}
+            for mask_file in mask_files:
+                base_name = mask_file.replace('_mask', '').rsplit('.', 1)[0]
+                mask_dict[base_name] = os.path.join(mask_path, mask_file)
+            
             img_files=[os.path.join(img_path,file_name) for file_name in img_files]
-            mask_files=[os.path.join(mask_path,file_name) for file_name in mask_files]
             for idx in range(len(img_files)):
                 if set=='train' and idx>len(img_files)//3:
                     break
@@ -189,8 +204,13 @@ class Personalized_mvtec_encoder(Dataset):
                         continue
                     elif idx>len(img_files)//3+1:
                         break
-                mask_filename = mask_files[idx]
                 img_filename = img_files[idx]
+                # 根据图像文件名查找对应的掩码文件
+                img_base = os.path.basename(img_filename).rsplit('.', 1)[0]
+                mask_filename = mask_dict.get(img_base)
+                if mask_filename is None:
+                    print(f"警告: 未找到图像 {img_filename} 对应的掩码文件，跳过")
+                    continue
                 image = Image.open(img_filename)
                 mask = Image.open(mask_filename).convert("L")
                 if not image.mode == "RGB":
@@ -201,6 +221,9 @@ class Personalized_mvtec_encoder(Dataset):
                 mask = Image.fromarray(mas)
                 image = image.resize((size, size), resample=self.interpolation)
                 mask = mask.resize((size, size), resample=self.interpolation)
+                # 打印实际resize后的尺寸（仅第一次）
+                if idx == 0 and len(self.data) == 0:
+                    print(f"[数据加载] 图像resize后尺寸: {image.size}, 设置的size参数: {size}")
                 image = np.array(image).astype(np.uint8)
                 mask = np.array(mask).astype(np.float32)
                 image= (image / 127.5 - 1.0).astype(np.float32)
@@ -281,8 +304,15 @@ class Personalized_mvtec_mask(Dataset):
         self.mask_path=os.path.join(self.data_root,sample_name,'ground_truth',anomaly_name)
         img_files=os.listdir(self.img_path)
         mask_files=os.listdir(self.mask_path)
-        img_files.sort(key=lambda x:int(x[:3]))
-        mask_files.sort(key=lambda x: int(x[:3]))
+        # 尝试提取数字，如果失败则按文件名自然排序
+        import re
+        def sort_key(filename):
+            match = re.search(r'^(\d+)', filename)
+            if match:
+                return (0, int(match.group(1)))
+            return (1, filename)
+        img_files.sort(key=sort_key)
+        mask_files.sort(key=sort_key)
         l=len(mask_files)//3
         self.img_files=[os.path.join(self.img_path,file_name) for file_name in img_files[:l]]
         self.mask_files=[os.path.join(self.mask_path,file_name) for file_name in mask_files[:l]]

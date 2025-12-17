@@ -103,21 +103,52 @@ if __name__ == "__main__":
         action="store_true", default=False,
         help='whether use adaptive attention reweighting',
     )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="configs/latent-diffusion/txt2img-1p4B-finetune-encoder+embedding.yaml",
+        help="Path to config file",
+    )
+    parser.add_argument(
+        "--actual_resume",
+        type=str,
+        default="./models/ldm/text2img-large/model.ckpt",
+        help="Path to model checkpoint to resume from",
+    )
+    parser.add_argument(
+        "--spatial_encoder_ckpt",
+        type=str,
+        default="logs/anomaly-checkpoints/checkpoints/spatial_encoder.pt",
+        help="Path to spatial encoder checkpoint",
+    )
+    parser.add_argument(
+        "--embeddings_ckpt",
+        type=str,
+        default="logs/anomaly-checkpoints/checkpoints/embeddings.pt",
+        help="Path to embeddings checkpoint",
+    )
 
     # setup_seed(42)
     opt = parser.parse_args()
-    config = OmegaConf.load("configs/latent-diffusion/txt2img-1p4B-finetune-encoder+embedding.yaml")
-    actual_resume = './models/ldm/text2img-large/model.ckpt'
-    model = load_model_from_config(config, actual_resume)
+    config = OmegaConf.load(opt.config)
+    model = load_model_from_config(config, opt.actual_resume)
     sample_name=opt.sample_name
     anomaly_name=opt.anomaly_name
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)
     sampler = DDIMSampler(model)
     model.prepare_spatial_encoder(optimze_together=True)
-    ckpt = torch.load('logs/anomaly-checkpoints/checkpoints/spatial_encoder.pt')
-    model.embedding_manager.spatial_encoder_model.load_state_dict(ckpt)
-    model.embedding_manager.load('logs/anomaly-checkpoints/checkpoints/embeddings.pt')
+    if os.path.exists(opt.spatial_encoder_ckpt):
+        ckpt = torch.load(opt.spatial_encoder_ckpt)
+        model.embedding_manager.spatial_encoder_model.load_state_dict(ckpt)
+        print(f"Loaded spatial encoder from {opt.spatial_encoder_ckpt}")
+    else:
+        print(f"Warning: spatial encoder checkpoint not found at {opt.spatial_encoder_ckpt}")
+    if os.path.exists(opt.embeddings_ckpt):
+        model.embedding_manager.load(opt.embeddings_ckpt)
+        print(f"Loaded embeddings from {opt.embeddings_ckpt}")
+    else:
+        print(f"Warning: embeddings checkpoint not found at {opt.embeddings_ckpt}")
     dataset = Positive_sample_with_generated_mask(opt.data_root,sample_name, anomaly_name, repeats=1, size=256, set='train',
                                                       per_image_tokens=False)
     dataloader = DataLoader(dataset, batch_size=8, shuffle=False, drop_last=True)
